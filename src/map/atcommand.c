@@ -28,10 +28,12 @@
 #include "mercenary.h"
 #include "elemental.h"
 #include "party.h"
+#include "script.h"
 #include "storage.h"
 #include "trade.h"
 #include "mapreg.h"
 #include "quest.h"
+#include "pc.h"
 
 #include <stdlib.h>
 #include <math.h>
@@ -920,7 +922,7 @@ ACMD_FUNC(guildstorage)
 		return -1;
 	}
 
-	storage_guild_storageopen(sd);
+	gstorage_storageopen(sd);
 	clif_displaymessage(fd, msg_txt(sd,920)); // Guild storage opened.
 	return 0;
 }
@@ -1548,7 +1550,7 @@ ACMD_FUNC(help)
 		StringBuf_AppendStr(&buf, msg_txt(sd,990)); // Available aliases:
 		command_info = get_atcommandinfo_byname(command_name);
 		iter = db_iterator(atcommand_alias_db);
-		for (alias_info = dbi_first(iter); dbi_exists(iter); alias_info = dbi_next(iter)) {
+		for (alias_info = (AliasInfo *)dbi_first(iter); dbi_exists(iter); alias_info = (AliasInfo *)dbi_next(iter)) {
 			if (alias_info->command == command_info) {
 				StringBuf_Printf(&buf, " %s", alias_info->alias);
 				has_aliases = true;
@@ -3250,7 +3252,7 @@ ACMD_FUNC(questskill)
 
 		return -1;
 	}
-	if (skill_id >= MAX_SKILL_DB) {
+	if (skill_id >= MAX_SKILL_ID) {
 		clif_displaymessage(fd, msg_txt(sd,198)); // This skill number doesn't exist.
 		return -1;
 	}
@@ -3263,7 +3265,7 @@ ACMD_FUNC(questskill)
 		return -1;
 	}
 
-	pc_skill(sd, skill_id, 1, 0);
+	pc_skill(sd, skill_id, 1, ADDSKILL_PERMANENT);
 	clif_displaymessage(fd, msg_txt(sd,70)); // You have learned the skill.
 
 	return 0;
@@ -3274,7 +3276,7 @@ ACMD_FUNC(questskill)
  *------------------------------------------*/
 ACMD_FUNC(lostskill)
 {
-	uint16 skill_id;
+	uint16 skill_id = 0, sk_idx = 0;
 	nullpo_retr(-1, sd);
 
 	if (!message || !*message || (skill_id = atoi(message)) <= 0)
@@ -3294,7 +3296,7 @@ ACMD_FUNC(lostskill)
 
 		return -1;
 	}
-	if (skill_id >= MAX_SKILL) {
+	if (!(sk_idx = skill_get_index(skill_id))) {
 		clif_displaymessage(fd, msg_txt(sd,198)); // This skill number doesn't exist.
 		return -1;
 	}
@@ -3307,8 +3309,8 @@ ACMD_FUNC(lostskill)
 		return -1;
 	}
 
-	sd->status.skill[skill_id].lv = 0;
-	sd->status.skill[skill_id].flag = SKILL_FLAG_PERMANENT;
+	sd->status.skill[sk_idx].lv = 0;
+	sd->status.skill[sk_idx].flag = SKILL_FLAG_PERMANENT;
 	clif_deleteskill(sd,skill_id);
 	clif_displaymessage(fd, msg_txt(sd,71)); // You have forgotten the skill.
 
@@ -3830,10 +3832,10 @@ ACMD_FUNC(reload) {
 		do_reload_quest();
 		clif_displaymessage(fd, msg_txt(sd,1377)); // Quest database has been reloaded.
 	} else if (strstr(command, "packetdb") || strncmp(message, "packetdb", 4) == 0) {
-		packetdb_readdb();
+		packetdb_readdb(true);
 		clif_displaymessage(fd, msg_txt(sd,1477)); // Packet database has been reloaded.
 	} else if (strstr(command, "instancedb") || strncmp(message, "instancedb", 4) == 0) {
-		instance_readdb();
+		instance_reload();
 		clif_displaymessage(fd, msg_txt(sd,516)); // Instance database has been reloaded.
 	}
 
@@ -3952,22 +3954,19 @@ ACMD_FUNC(mapinfo) {
 			,map[m_id].adjust.damage.other
 			,map[m_id].adjust.damage.caster);
 		clif_displaymessage(fd, atcmd_output);
-		if (map[m_id].skill_damage[0].skill_id) {
-			int j;
-
+		if (map[m_id].skill_damage.count) {
+			uint8 j;
 			clif_displaymessage(fd," > [Map Skill] Name : Player, Monster, Boss Monster, Other | Caster");
-			for (j = 0; j < MAX_MAP_SKILL_MODIFIER; j++) {
-				if (map[m_id].skill_damage[j].skill_id) {
-					sprintf(atcmd_output,"     %d. %s : %d%%, %d%%, %d%%, %d%% | %d"
-						,j+1
-						,skill_get_name(map[m_id].skill_damage[j].skill_id)
-						,map[m_id].skill_damage[j].pc
-						,map[m_id].skill_damage[j].mob
-						,map[m_id].skill_damage[j].boss
-						,map[m_id].skill_damage[j].other
-						,map[m_id].skill_damage[j].caster);
-					clif_displaymessage(fd,atcmd_output);
-				}
+			for (j = 0; j < map[m_id].skill_damage.count; j++) {
+				sprintf(atcmd_output,"     %d. %s : %d%%, %d%%, %d%%, %d%% | %d"
+					,j+1
+					,skill_get_name(map[m_id].skill_damage.entries[j]->skill_id)
+					,map[m_id].skill_damage.entries[j]->pc
+					,map[m_id].skill_damage.entries[j]->mob
+					,map[m_id].skill_damage.entries[j]->boss
+					,map[m_id].skill_damage.entries[j]->other
+					,map[m_id].skill_damage.entries[j]->caster);
+				clif_displaymessage(fd,atcmd_output);
 			}
 		}
 	}
@@ -5436,18 +5435,24 @@ ACMD_FUNC(cleargstorage)
 		return -1;
 	}
 
-	gstorage = guild2storage2(sd->status.guild_id);
+	gstorage = gstorage_get_storage(sd->status.guild_id);
 	if (gstorage == NULL) {// Doesn't have opened @gstorage yet, so we skip the deletion since *shouldn't* have any item there.
 		return -1;
 	}
 
-	j = gstorage->storage_amount;
-	gstorage->lock = 1; // Lock @gstorage: do not allow any item to be retrieved or stored from any guild member
-	for (i = 0; i < j; ++i) {
-		guild_storage_delitem(sd, gstorage, i, gstorage->items[i].amount);
+	if (gstorage->opened) {
+		struct map_session_data *tsd = map_charid2sd(gstorage->opened);
+		if (tsd)
+			gstorage_storageclose(tsd);
 	}
-	storage_guild_storageclose(sd);
-	gstorage->lock = 0; // Cleaning done, release lock
+
+	j = gstorage->storage_amount;
+	gstorage->locked = true; // Lock @gstorage: do not allow any item to be retrieved or stored from any guild member
+	for (i = 0; i < j; ++i) {
+		gstorage_delitem(sd, gstorage, i, gstorage->items[i].amount);
+	}
+	gstorage_storageclose(sd);
+	gstorage->locked = false; // Cleaning done, release lock
 
 	clif_displaymessage(fd, msg_txt(sd,1395)); // Your guild storage was cleaned.
 	return 0;
@@ -5504,11 +5509,11 @@ ACMD_FUNC(skillid) {
 
 	for( data = iter->first(iter,&key); iter->exists(iter); data = iter->next(iter,&key) ) {
 		int idx = skill_get_index(db_data2i(data));
-		if (strnicmp(key.str, message, skillen) == 0 || strnicmp(skill_db[idx].desc, message, skillen) == 0) {
-			sprintf(atcmd_output, msg_txt(sd,1164), db_data2i(data), skill_db[idx].desc, key.str); // skill %d: %s (%s)
+		if (strnicmp(key.str, message, skillen) == 0 || strnicmp(skill_db[idx]->desc, message, skillen) == 0) {
+			sprintf(atcmd_output, msg_txt(sd,1164), db_data2i(data), skill_db[idx]->desc, key.str); // skill %d: %s (%s)
 			clif_displaymessage(fd, atcmd_output);
-		} else if ( found < MAX_SKILLID_PARTIAL_RESULTS && ( stristr(key.str,message) || stristr(skill_db[idx].desc,message) ) ) {
-			snprintf(partials[found++], MAX_SKILLID_PARTIAL_RESULTS_LEN, msg_txt(sd,1164), db_data2i(data), skill_db[idx].desc, key.str);
+		} else if ( found < MAX_SKILLID_PARTIAL_RESULTS && ( stristr(key.str,message) || stristr(skill_db[idx]->desc,message) ) ) {
+			snprintf(partials[found++], MAX_SKILLID_PARTIAL_RESULTS_LEN, msg_txt(sd,1164), db_data2i(data), skill_db[idx]->desc, key.str);
 		}
 	}
 
@@ -5556,7 +5561,7 @@ ACMD_FUNC(useskill)
 		return -1;
 	}
 
-	if (skill_id >= HM_SKILLBASE && skill_id < HM_SKILLBASE+MAX_HOMUNSKILL
+	if (SKILL_CHK_HOMUN(skill_id)
 		&& sd->hd && hom_is_active(sd->hd)) // (If used with @useskill, put the homunc as dest)
 		bl = &sd->hd->bl;
 	else
@@ -5640,7 +5645,7 @@ ACMD_FUNC(skilltree)
 	{
 		if( ent->need[j].id && pc_checkskill(sd,ent->need[j].id) < ent->need[j].lv)
 		{
-			sprintf(atcmd_output, msg_txt(sd,1170), ent->need[j].lv, skill_db[ent->need[j].id].desc); // Player requires level %d of skill %s.
+			sprintf(atcmd_output, msg_txt(sd,1170), ent->need[j].lv, skill_db[skill_get_index(ent->need[j].id)]->desc); // Player requires level %d of skill %s.
 			clif_displaymessage(fd, atcmd_output);
 			meets = 0;
 		}
@@ -5669,7 +5674,7 @@ void getring (struct map_session_data* sd)
 
 	if((flag = pc_additem(sd,&item_tmp,1,LOG_TYPE_COMMAND))) {
 		clif_additem(sd,0,0,flag);
-		map_addflooritem(&item_tmp,1,sd->bl.m,sd->bl.x,sd->bl.y,0,0,0,4);
+		map_addflooritem(&item_tmp,1,sd->bl.m,sd->bl.x,sd->bl.y,0,0,0,4,0);
 	}
 }
 
@@ -6765,17 +6770,43 @@ ACMD_FUNC(uptime)
 
 /*==========================================
  * @changesex <sex>
- * => Changes one's sex. Argument sex can be 0 or 1, m or f, male or female.
+ * => Changes one's account sex. Argument sex can be 0 or 1, m or f, male or female.
  *------------------------------------------*/
 ACMD_FUNC(changesex)
 {
 	int i;
+
 	nullpo_retr(-1, sd);
+
 	pc_resetskill(sd,4);
 	// to avoid any problem with equipment and invalid sex, equipment is unequiped.
-	for( i=0; i<EQI_MAX; i++ )
-		if( sd->equip_index[i] >= 0 ) pc_unequipitem(sd, sd->equip_index[i], 3);
-	chrif_changesex(sd);
+	for (i = 0; i < EQI_MAX; i++) {
+		if (sd->equip_index[i] >= 0)
+			pc_unequipitem(sd, sd->equip_index[i], 3);
+	}
+
+	chrif_changesex(sd, true);
+	return 0;
+}
+
+/*==========================================
+ * @changecharsex <sex>
+ * => Changes one's character sex. Argument sex can be 0 or 1, m or f, male or female.
+ *------------------------------------------*/
+ACMD_FUNC(changecharsex)
+{
+	int i;
+
+	nullpo_retr(-1, sd);
+
+	pc_resetskill(sd,4);
+	// to avoid any problem with equipment and invalid sex, equipment is unequiped.
+	for (i = 0; i < EQI_MAX; i++) {
+		if (sd->equip_index[i] >= 0)
+			pc_unequipitem(sd, sd->equip_index[i], 3);
+	}
+
+	chrif_changesex(sd, false);
 	return 0;
 }
 
@@ -7584,7 +7615,7 @@ ACMD_FUNC(whodrops)
 				if (pc_isvip(sd) && battle_config.vip_drop_increase)
 					dropchance += battle_config.vip_drop_increase;
 #endif
-				sprintf(atcmd_output, "- %s (%02.02f%%)", mob_db(item_data->mob[j].id)->jname, dropchance/100.);
+				sprintf(atcmd_output, "- %s (%d): %02.02f%%", mob_db(item_data->mob[j].id)->jname, item_data->mob[j].id, dropchance/100.);
 				clif_displaymessage(fd, atcmd_output);
 			}
 		}
@@ -8365,7 +8396,7 @@ ACMD_FUNC(auction)
 	nullpo_ret(sd);
 
 	if (!battle_config.feature_auction) {
-		clif_colormes(sd, color_table[COLOR_RED], msg_txt(sd, 517));
+		clif_colormes(sd->fd, color_table[COLOR_RED], msg_txt(sd, 517));
 		return 0;
 	}
 
@@ -8797,7 +8828,7 @@ static void atcommand_commands_sub(struct map_session_data* sd, const int fd, At
 
 	clif_displaymessage(fd, msg_txt(sd,273)); // "Commands available:"
 
-	for (cmd = dbi_first(iter); dbi_exists(iter); cmd = dbi_next(iter)) {
+	for (cmd = (AtCommandInfo*)dbi_first(iter); dbi_exists(iter); cmd = (AtCommandInfo*)dbi_next(iter)) {
 		unsigned int slen = 0;
 
 		switch( type ) {
@@ -8926,7 +8957,7 @@ ACMD_FUNC(set) {
 	int toset = 0, len;
 	bool is_str = false;
 
-	if( !message || !*message || (toset = sscanf(message, "%31s %128[^\n]s", reg, val)) < 1  ) {
+	if( !message || !*message || (toset = sscanf(message, "%31s %127[^\n]s", reg, val)) < 1  ) {
 		clif_displaymessage(fd, msg_txt(sd,1367)); // Usage: @set <variable name> <value>
 		clif_displaymessage(fd, msg_txt(sd,1368)); // Usage: ex. "@set PoringCharVar 50"
 		clif_displaymessage(fd, msg_txt(sd,1369)); // Usage: ex. "@set PoringCharVarSTR$ Super Duper String"
@@ -8974,12 +9005,12 @@ ACMD_FUNC(set) {
 				break;
 			case '#':
 				if( reg[1] == '#' )
-					data->u.str = pc_readaccountreg2str(sd, reg);// global
+					data->u.str = pc_readaccountreg2str(sd, add_str(reg));// global
 				else
-					data->u.str = pc_readaccountregstr(sd, reg);// local
+					data->u.str = pc_readaccountregstr(sd, add_str(reg));// local
 				break;
 			default:
-				data->u.str = pc_readglobalreg_str(sd, reg);
+				data->u.str = pc_readglobalreg_str(sd, add_str(reg));
 				break;
 		}
 
@@ -9003,17 +9034,16 @@ ACMD_FUNC(set) {
 				break;
 			case '#':
 				if( reg[1] == '#' )
-					data->u.num = pc_readaccountreg2(sd, reg);// global
+					data->u.num = pc_readaccountreg2(sd, add_str(reg));// global
 				else
-					data->u.num = pc_readaccountreg(sd, reg);// local
+					data->u.num = pc_readaccountreg(sd, add_str(reg));// local
 				break;
 			default:
-				data->u.num = pc_readglobalreg(sd, reg);
+				data->u.num = pc_readglobalreg(sd, add_str(reg));
 				break;
 		}
 
 	}
-
 
 	switch( data->type ) {
 		case C_INT:
@@ -9032,6 +9062,8 @@ ACMD_FUNC(set) {
 
 	clif_displaymessage(fd, atcmd_output);
 
+	if (is_str && data->u.str)
+		aFree(data->u.str);
 	aFree(data);
 
 	return 0;
@@ -9115,13 +9147,14 @@ ACMD_FUNC(unloadnpcfile) {
 	return 0;
 }
 ACMD_FUNC(cart) {
-#define MC_CART_MDFY(x) \
-	sd->status.skill[MC_PUSHCART].id = x?MC_PUSHCART:0; \
-	sd->status.skill[MC_PUSHCART].lv = x?1:0; \
-	sd->status.skill[MC_PUSHCART].flag = x?SKILL_FLAG_TEMPORARY:SKILL_FLAG_PERMANENT;
+#define MC_CART_MDFY(idx, x) \
+	sd->status.skill[(idx)].id = (x)?MC_PUSHCART:0; \
+	sd->status.skill[(idx)].lv = (x)?1:0; \
+	sd->status.skill[(idx)].flag = (x)?SKILL_FLAG_TEMPORARY:SKILL_FLAG_PERMANENT;
 
 	int val = atoi(message);
 	bool need_skill = (pc_checkskill(sd, MC_PUSHCART) == 0);
+	uint16 sk_idx = 0;
 
 	if( !message || !*message || val < 0 || val > MAX_CARTS ) {
 		sprintf(atcmd_output, msg_txt(sd,1390),command,MAX_CARTS); // Unknown Cart (usage: %s <0-%d>).
@@ -9134,19 +9167,22 @@ ACMD_FUNC(cart) {
 		return -1;
 	}
 
+	if (!(sk_idx = skill_get_index(MC_PUSHCART)))
+		return -1;
+
 	if( need_skill ) {
-		MC_CART_MDFY(1);
+		MC_CART_MDFY(sk_idx,1);
 	}
 
 	if( !pc_setcart(sd, val) ) {
 		if( need_skill ) {
-			MC_CART_MDFY(0);
+			MC_CART_MDFY(sk_idx,0);
 		}
 		return -1;/* @cart failed */
 	}
 
 	if( need_skill ) {
-		MC_CART_MDFY(0);
+		MC_CART_MDFY(sk_idx,0);
 	}
 
 	clif_displaymessage(fd, msg_txt(sd,1392)); // Cart Added
@@ -9345,7 +9381,7 @@ ACMD_FUNC(langtype)
 		lang = msg_langstr2langtype(langstr); //Switch langstr to associated langtype
 		if( msg_checklangtype(lang,false) == 1 ){ //Verify it's enabled and set it
 			char output[100];
-			pc_setaccountreg(sd, "#langtype", lang); //For login/char
+			pc_setaccountreg(sd, add_str("#langtype"), lang); //For login/char
 			sd->langtype = lang;
 			sprintf(output,msg_txt(sd,461),msg_langtype2langstr(lang)); // Language is now set to %s.
 			clif_displaymessage(fd,output);
@@ -9878,6 +9914,7 @@ void atcommand_basecommands(void) {
 		ACMD_DEF(clearweather),
 		ACMD_DEF(uptime),
 		ACMD_DEF(changesex),
+		ACMD_DEF(changecharsex),
 		ACMD_DEF(mute),
 		ACMD_DEF(refresh),
 		ACMD_DEF(refreshall),
@@ -10047,7 +10084,7 @@ static void atcommand_get_suggestions(struct map_session_data* sd, const char *n
 	alias_iter = db_iterator(atcommand_alias_db);
 
 	// Build the matches
-	for (command_info = dbi_first(atcommand_iter); dbi_exists(atcommand_iter); command_info = dbi_next(atcommand_iter))     {
+	for (command_info = (AtCommandInfo*)dbi_first(atcommand_iter); dbi_exists(atcommand_iter); command_info = (AtCommandInfo*)dbi_next(atcommand_iter))     {
 		match = strstr(command_info->command, name);
 		can_use = pc_can_use_command(sd, command_info->command, type);
 		if ( prefix_count < MAX_SUGGESTIONS && match == command_info->command && can_use ) {
@@ -10060,7 +10097,7 @@ static void atcommand_get_suggestions(struct map_session_data* sd, const char *n
 		}
 	}
 
-	for (alias_info = dbi_first(alias_iter); dbi_exists(alias_iter); alias_info = dbi_next(alias_iter)) {
+	for (alias_info = (AliasInfo *)dbi_first(alias_iter); dbi_exists(alias_iter); alias_info = (AliasInfo *)dbi_next(alias_iter)) {
 		match = strstr(alias_info->alias, name);
 		can_use = pc_can_use_command(sd, alias_info->command->command, type);
 		if ( prefix_count < MAX_SUGGESTIONS && match == alias_info->alias && can_use) {
@@ -10400,9 +10437,9 @@ void atcommand_db_load_groups(int* group_ids) {
 	AtCommandInfo* cmd;
 	int i;
 
-	for (cmd = dbi_first(iter); dbi_exists(iter); cmd = dbi_next(iter)) {
-		cmd->at_groups = aMalloc( pc_group_max * sizeof(char) );
-		cmd->char_groups = aMalloc( pc_group_max * sizeof(char) );
+	for (cmd = (AtCommandInfo*)dbi_first(iter); dbi_exists(iter); cmd = (AtCommandInfo*)dbi_next(iter)) {
+		cmd->at_groups = (char*)aMalloc( pc_group_max * sizeof(char) );
+		cmd->char_groups = (char*)aMalloc( pc_group_max * sizeof(char) );
 		for(i = 0; i < pc_group_max; i++) {
 			if( pc_group_can_use_command(group_ids[i], cmd->command, COMMAND_ATCOMMAND ) )
 			   cmd->at_groups[i] = 1;
@@ -10425,7 +10462,7 @@ void atcommand_db_clear(void) {
 		DBIterator *iter = db_iterator(atcommand_db);
 		AtCommandInfo* cmd;
 
-		for (cmd = dbi_first(iter); dbi_exists(iter); cmd = dbi_next(iter)) {
+		for (cmd = (AtCommandInfo*)dbi_first(iter); dbi_exists(iter); cmd = (AtCommandInfo*)dbi_next(iter)) {
 			aFree(cmd->at_groups);
 			aFree(cmd->char_groups);
 		}

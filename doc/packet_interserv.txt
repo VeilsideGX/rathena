@@ -75,16 +75,7 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 		- Retrieve the number of user present on a char-serv
 
 0x2715:
-	Type: HA
-	Structure: <cmd>.W <aid>.L <email>40B
-	index: 0,2,6
-	len: 46
-	parameter:
-		- cmd : packet identification (0x2715)
-		- aid: account identification
-		- email: new email for account id
-	desc:
-		- Request to update the email linked to this aid
+	free
 
 0x2716:
 	Type: HA
@@ -99,9 +90,9 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 
 0x2717
 	Type: AH
-	Structure: <cmd>.W <aid>.L <email>.40B <expiration_time>.L <group_id>.B <char_slots>.B <birthdate>.11B <pincode>.5B <pincode_change>.L <bank_vault>.L <isvip>.B <char_vip>.B <MAX_CHAR_BILLING>.B
-	index: 0,2,6,46,50,51,52,63,68,72,76,77,78
-	len: 79
+	Structure: <cmd>.W <aid>.L <email>.40B <expiration_time>.L <group_id>.B <char_slots>.B <birthdate>.11B <pincode>.5B <pincode_change>.L <isvip>.B <char_vip>.B <MAX_CHAR_BILLING>.B
+	index: 0,2,6,46,50,51,52,63,68,72,73,74
+	len: 75
 	parameter:
 		- cmd: packet identification (0x2717)
 		- aid: account identification
@@ -112,7 +103,6 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 		- birthdate: birthdate of aid
 		- pincode: current pincode of aid
 		- pincode_change: new pincode of aid
-		- bank_vault: value in bank for this aid
 		- isvip: if this aid is currently vip or not
 		- char_vip: number of charslot that are vip (could only do creation on if you are vip)
 		- MAX_CHAR_BILLING: number of charslort that are for billing
@@ -235,7 +225,24 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 		- Receiving of map-server via char-server a ban request (alter the ban time)
 
 0x2726:
-    free
+	Type: AH
+	Structure: <cmd>.W <len>.W <aid>.L <cid>.L <?>.B <type>.B <count>.W { <keyLength>.B <key>.<keyLength> <index>.L <valLength>.B <val>.<valLength> }*
+	index: 0,2,4,8,12,13,14,16,...
+	len: variable
+	parameter:
+		- cmd : packet identification (0x2726)
+		- ?
+		- aid
+		- cid
+		- type
+		- count
+		- keyLength
+		- key
+		- index
+		- val
+		- valLength
+	desc:
+		- Send global account registry
 
 0x2727:
 	Type: HA
@@ -250,7 +257,7 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 
 0x2728:
 	Type: HA
-	Structure: <cmd>.W <len>.W <aid>.L <cid>.L { <str>.?B <value>.?B }
+	Structure: <cmd>.W <len>.W <aid>.L <cid>.L { <keyLength>.B <key>.<keyLength> <index>.L <type>.B <value>.?B }
 	index: 0,2,4,8,13
 	len: variable (reg size+4)
 	parameter:
@@ -258,8 +265,11 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 		- len:  pakcet size
 		- aid: account identification
 		- cid : char identification
-		- str : name of variable in registry
-		- value : value of varaible in registry
+		- keyLength
+		- key
+		- index
+		- type
+		- value
 	desc:
 		- Receive an request to fetch account_reg2 from a char-server, see packet 0x3004 (mapif_parse_Registry)
 
@@ -383,7 +393,8 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 	parameter:
 		- cmd : packet identification (0x2735
 	desc:
-		- ip address update signal from login server
+		- IP address update signal from login server.
+		- Send back the IP of char server to login-server if IP was changed.
 
 0x2736:
 	Type: HA
@@ -437,31 +448,9 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 0x273f
 	free
 
-0x2740:
-	Type: HA
-	Structure: <cmd>.W <aid>.L <type>.B <data>.L
-	index: 0,2,6,7
-	len: 11
-	parameter:
-		- cmd : packet identification (0x2740)
-		- aid: account identification
-		- type:
-		- data:
-	desc:
-		- Request to update bank_vault
-
-0x2741:
-	Type: AH
-	Structure: <cmd>.W <aid>.L <type>.B <data>.L
-	index: 0,2,6,7
-	len: 11
-	parameter:
-		- cmd : packet identification (0x2741)
-		- aid : account identification
-		- type : 1=select, 2=upd and save
-		- data : new bank vault
-	desc:
-		- Request the bank info of login
+0x2740
+0x2741
+	free
 
 0x2742:
 	Type: HA
@@ -616,6 +605,22 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 		- query : name or aid of player we want info
 	desc:
 		- Request acc info
+
+0x3009
+	Type: ZI
+	Structure: <cmd>.W <len>.W <nameid>.W <source>.W <type>.B <name>.24B <srcname>.24B
+	index: 0,2,6,4,8,9,24
+	len: 9+NAME_LENGTH+NAME_LENGTH
+	parameter:
+		- cmd : packet identification (0x3009)
+		- len : Packet length
+		- nameid : ID of obtained item
+		- source : Source from where the item obtained
+		- type : Obtained type. 0: Box/Package, 1: Monster, 2: NPC
+		- name : Name of player who obtained the item
+		- srcname : Source name as alternative of source id
+	desc:
+		- Send broadcasts request if player get special items.
 
 0x3018
 	Type: ZI
@@ -1445,18 +1450,24 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 		- Parse whisper to GM
 
 0x3804
-	Type: IZ
-	Structure: <cmd>.W <?>.W <aid>.L <cid>.L <type>.B
-	index: 0,2,4,8,12
-	len: variable: 13 or p (Max=5013)
+	Type: HZ
+	Structure: <cmd>.W <len>.W <aid>.L <cid>.L <?>.B <type>.B <count>.W { <keyLength>.B <key>.<keyLength> <index>.L <valLength>.B <val>.<valLength> }*
+	index: 0,2,4,8,12,13,14,16,...
+	len: variable
 	parameter:
 		- cmd : packet identification (0x3804)
 		- ?
 		- aid
 		- cid
 		- type
+		- count
+		- keyLength
+		- key
+		- index
+		- val
+		- valLength
 	desc:
-		- Account registry transfer to map-server
+		- Send global account registry to map-server from login-server
 
 0x3806
 	Type: IZ
@@ -1499,6 +1510,22 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 		- acc_name
 	desc:
 		- Transmit the result of a account_information request from map-serv, with type 1
+
+0x3809
+	Type: IZ
+	Structure: <cmd>.W <len>.W <nameid>.W <source>.W <type>.B <name>.24B <srcname>.24B
+	index: 0,2,6,4,8,9,24
+	len: 9+NAME_LENGTH+NAME_LENGTH
+	parameter:
+		- cmd : packet identification (0x3809)
+		- len : Packet length
+		- nameid : ID of obtained item
+		- source : Source from where the item obtained
+		- type : Obtained type. 0: Box/Package, 1: Monster, 2: NPC
+		- name : Name of player who obtained the item
+		- srcname : Source name as alternative of source
+	desc:
+		- Broadcasts if player get special items.
 
 0x3818
 	Type: IZ
@@ -2021,6 +2048,20 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 	desc:
 		- Acknowledge the good deletion of the bound item
 
+0x3857
+	Type: IZ
+	Structure: <cmd>.W <size>.W <count>.W <guild_id>.W { <items>.?B }*MAX_INVENTORY
+	index: 0,2,4,6,8
+	len: variable: 8+items
+	parameter:
+		- cmd : packet identification (0x3856)
+		- size
+		- count : number of item retrieved
+		- guild_id
+		- items: retreived guild bound items
+	desc:
+		- Ask map-server to process the retreived guild bound items from expelled member
+
 0x3860
 	Type: IZ
 	Structure: <cmd>.W <size>.W <char_id>.L <quest>.?B
@@ -2162,15 +2203,19 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 		- chrif_connectack
 
 0x2afb
-	Type: AZ
-	Structure: <cmd>.W <?>.B
-	index: 0,2
-	len: variable: 3+NAME_LENGTH
+	Type: HZ
+	Structure: <cmd>.W <size>.W <status>.B <servername>.?B <defaultmap>.?B <mapx>.W <mapy>.W
+	index: 0,2,4,5+NAME_LENGTH,5+NAME_LENGTH+MAP_NAME_LENGTH,5+NAME_LENGTH+MAP_NAME_LENGTH+2
+	len: variable: 9+NAME_LENGTH+MAP_NAME_LENGTH
 	parameter:
 		- cmd : packet identification (0x2afb)
-		- ?
+		- status : 0 Success, 1 : Fail
+		- servername :
+		- defaultmap :
+		- mapx :
+		- mapy :
 	desc:
-		- send name for wisp to player
+		- Map received from map-server, then send reply with server name and default map
 
 0x2afd
 	Type: AZ
@@ -2449,16 +2494,7 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 		- Client authentication failed
 
 0x2b29
-	Type: AZ
-	Structure: <cmd>.W <aid>.L <bank_vault>.L
-	index: 0,2,6
-	len: 10
-	parameter:
-		- cmd : packet identification (0x2b29)
-		- aid
-		- bank_vault
-	desc:
-		- Received bank data for player to be loaded
+	free
 
 0x2b2b
 	Type: AZ
@@ -2477,9 +2513,9 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 
 0x2b2f
 	Type: AZ
-	Structure: <cmd>.W <len>.W <cid>.L <count>.W
+	Structure: <cmd>.W <len>.W <cid>.L <count>.B { <bonus_script_data>.?B }
 	index: 0,2,4,8
-	len: variable: 10+50*bonus_script_data
+	len: variable: 9+count*bonus_script_data
 	parameter:
 		- cmd : packet identification (0x2b2f)
 	desc:
@@ -2646,7 +2682,7 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 		- cmd : packet identification (0x2b0e)
 		- aid
 		- name
-		- operation_type
+		- operation_type: 1:block account, 2:ban account, 3:unblock account, 4:unban account, 5:changesex, 6:VIP, 7:changecharsex
 		- timediff
 		- val1
 		- val2
@@ -2826,9 +2862,9 @@ Currently the max packet size is 0xFFFF (see 'WFIFOSET()' in 'src/common/socket.
 
 0x2b2e
 	Type: ZA
-	Structure: <cmd>.W <len>.W <char_id>.L <count>.W
+	Structure: <cmd>.W <len>.W <char_id>.L <count>.B { <bonus_script_data>.?B }
 	index: 0,2,4,8
-	len: variable: 10+MAX_PC_BONUS_SCRIPT*bonus_script_data
+	len: variable: 9+count*bonus_script_data
 	parameter:
 		- cmd : packet identification (0x2b2e)
 		- len

@@ -28,35 +28,8 @@
 //NOTE: The max value (100%) of attack_rate, defense_rate & change_target_rate is 10000.
 
 //In theory you can use any valid script, but it is run only once upon pet
-//loading, so it is recommended you use the specific pet scripts:
-
-//petskillattack skillid, skilllv, rate, bonusrate
-//Skill attack that triggers while the pet is attacking. Rate is the base
-//chance of execution per attack. Bonusrate is an additional success rate when
-//intimacy reaches max.
-
-//petskillattack2 skillid, damage, hits, rate, bonusrate
-//Same as petskillattack, but the damage and number of hits is fixed
-//the damage specified is total, not per hit.
-
-//petskillsupport skillid, skilllv, delay, hp%, sp%
-//Casts a support skill when the health levels are below the specified hp% and
-//sp%. Delay is the minimum time in seconds before the skill can be cast again
-
-//petheal amount, delay, hp%, sp%
-//Similar to petskillsupport, but the skill is fixed to heal (28) and the
-//heal-amount is fixed to the value given.
-
-//petrecovery type, delay: Cures the "type" status effect after "delay" seconds
-
-//petskillbonus type, value, duration, delay
-//Gives bonus stats. Type is the stat to increase (bStr, bLuk), value is the
-//amount by which it is increased, duration signals how long the bonus lasts
-//delay is the time elapsed after the bonus ends and before it starts again.
-
-//A single pet can have petloot, petskillbonus, petskillattack (or
-//petskillattack2) and petskillsupport (or petheal) at the same time,
-//but only one of each.
+//loading, so it is recommended you use the specific pet scripts.
+//Please see "The Pet AI commands" in 'doc/script_commands.txt'.
 
 1002,PORING,Poring,619,9001,10013,531,80,60,50,100,250,20,2000,150,1,0,350,400,800,{ petloot 10; },{ bonus bLuk,2; bonus bCritical,1; }
 1113,DROPS,Drops,620,9002,10013,508,80,60,40,100,250,20,1500,150,1,0,300,400,500,{ petloot 10; },{ bonus bHit,3; bonus bAtk,3; }
@@ -69,7 +42,7 @@
 1167,SAVAGE_BABE,Savage Babe,627,9009,10015,537,80,60,40,100,250,20,1500,150,0,0,500,500,200,{ petskillbonus bVit,4,10,50; },{ bonus bVit,1; bonus bMaxHP,50; }
 1107,DESERT_WOLF_B,Baby Desert Wolf,628,9010,10003,537,80,60,40,100,250,20,1000,150,0,0,400,400,400,{ petskillattack "SM_PROVOKE",1,0,5;},{ bonus bInt,1; bonus bMaxSP,50; }
 1052,ROCKER,Rocker,629,9011,10014,537,80,60,30,100,250,20,1500,150,0,0,350,350,600,{ petskillbonus bAllStats,1,10,50; },{ bonus bHPrecovRate,5; bonus bMaxHP,25; }
-1014,SPORE,Spore,630,9012,10017,537,80,60,30,100,250,20,1500,150,0,0,350,500,500,{ petrecovery SC_Poison,60; },{ bonus bHit,5; bonus bAtk,-2; }
+1014,SPORE,Spore,630,9012,10017,537,80,60,30,100,250,20,1500,150,0,0,350,500,500,{ petrecovery SC_POISON,60; },{ bonus bHit,5; bonus bAtk,-2; }
 1077,POISON_SPORE,Poison Spore,631,9013,10017,537,80,60,20,100,250,20,1000,150,0,0,600,200,400,{ petskillattack "NPC_POISON",20,0,10; },{ bonus bStr,1; bonus bInt,1; }
 1019,PECOPECO,PecoPeco,632,9014,10010,537,80,60,30,100,250,20,1000,150,1,0,400,500,800,{ petskillbonus bSpeedRate,25,20,20; },{ bonus bMaxHP,150; bonus bMaxSP,-10; }
 1056,SMOKIE,Smokie,633,9015,10019,537,80,60,30,100,250,20,1000,150,1,0,600,600,100,{ petskillbonus bPerfectHide,1,3600,0; },{ bonus bAgi,1; bonus bFlee2,1; }
@@ -105,8 +78,8 @@
 1148,MEDUSA,Medusa,12368,9050,10032,6108,80,60,10,100,250,20,200,150,0,0,300,300,800,{},{ bonus bVit,1; bonus2 bResEff,Eff_Stone,500; }
 1179,WHISPER,Whisper,12363,9045,10027,6100,80,60,20,100,250,20,500,150,0,0,300,300,800,{},{ bonus bFlee,7; bonus bDef,-3; }
 1299,GOBLIN_LEADER,Goblin Leader,12364,9046,10028,6104,80,60,10,100,250,20,50,150,0,0,300,300,800,{},{ bonus2 bAddRace,RC_DemiHuman,3; }
-1370,SUCCUBUS,Succubus,12373,9055,10037,6113,80,60,10,100,250,20,200,150,0,0,300,300,800,{},{ bonus2 bHpDrainRate,50,5; }
-1374,INCUBUS,Incubus,12370,9052,10034,6110,80,60,10,100,250,20,50,150,0,0,300,300,800,{},{ bonus bMaxSPRate,3; }
+1370,SUCCUBUS,Succubus,12373,9055,10037,6113,80,60,10,100,250,20,200,150,0,0,300,300,800,{ bonus2 bHPDrainRate,10,5; },{ bonus2 bHPDrainRate,30,5; bonus bMaxHPrate,1; }
+1374,INCUBUS,Incubus,12370,9052,10034,6110,80,60,10,100,250,20,50,150,0,0,300,300,800,{ bonus bMaxSPRate,3; bonus2 bSPDrainRate,10,1; },{ bonus bMaxSPRate,5; bonus2 bSPDrainRate,30,1; }
 1379,NIGHTMARE_TERROR,Nightmare Terror,12372,9054,10036,6112,80,60,10,100,250,20,200,150,0,0,300,300,800,{},{ bonus2 bResEff,Eff_Sleep,10000; }
 1401,SHINOBI,Shinobi,12362,9044,10026,6099,80,60,20,100,250,20,500,150,0,0,300,300,800,{},{ bonus bAgi,2; }
 1404,MIYABI_NINGYO,Miyabi Doll,12366,9048,10030,6106,80,60,15,100,250,20,200,150,0,0,300,300,800,{},{ bonus bInt,1; bonus bCastrate,-3; }

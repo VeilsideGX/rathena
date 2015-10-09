@@ -59,18 +59,10 @@
 /// Uncomment to enable skills damage adjustments
 /// By enabling this, db/skill_damage.txt and the skill_damage mapflag will adjust the
 /// damage rate of specified skills.
-#define ADJUST_SKILL_DAMAGE
+//#define ADJUST_SKILL_DAMAGE
 
 /// Uncomment to enable the job base HP/SP table (job_basehpsp_db.txt)
-//#define HP_SP_TABLES
-
-/// Enable separated item by `guid`. [Cydh]
-/// See db/[pre-]re/item_flag.txt and doc/item_group.txt for the `guid` explanation.
-/// NOTE:
-///    If this feature is disabled "in the middle" of your game, the separated is still
-///    separated in inventory, storage, or guild storage until player move the item
-///    to/from storage/inventory to restack them.
-#define ENABLE_ITEM_GUID
+#define HP_SP_TABLES
 
 /// Uncomment to enable VIP system.
 //#define VIP_ENABLE
@@ -86,12 +78,13 @@
 	#define MIN_CHARS 3 // Default number of characters per account.
 	#define MAX_CHAR_VIP 6 // This must be less than MAX_CHARS
 	#define MAX_CHAR_BILLING 0 // This must be less than MAX_CHARS
-#else
-	#define MIN_STORAGE MAX_STORAGE // If the VIP system is disabled the min = max.
-	#define MIN_CHARS MAX_CHARS // Default number of characters per account.
-	#define MAX_CHAR_BILLING 0
-	#define MAX_CHAR_VIP 0
 #endif
+
+/// Comment to disable the official packet obfuscation support.
+/// When enabled, make sure there is value for 'packet_keys' of used packet version or
+/// defined 'packet_keys_use' in db/[import/]packet_db.txt.
+/// This requires PACKETVER 2011-08-17 or newer.
+#define PACKET_OBFUSCATION
 
 /**
  * No settings past this point

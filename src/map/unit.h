@@ -40,6 +40,7 @@ struct unit_data {
 	unsigned int attackabletime;
 	unsigned int canact_tick;
 	unsigned int canmove_tick;
+	bool immune_attack; ///< Whether the unit is immune to attacks
 	uint8 dir;
 	unsigned char walk_count;
 	unsigned char target_count;
@@ -51,7 +52,10 @@ struct unit_data {
 		unsigned walk_easy : 1 ;
 		unsigned running : 1;
 		unsigned speed_changed : 1;
+		unsigned walk_script : 1;
+		unsigned blockedmove : 1;
 	} state;
+	char walk_done_event[EVENT_NAME_LENGTH];
 };
 
 struct view_data {
@@ -100,7 +104,7 @@ int unit_warp(struct block_list *bl, short map, short x, short y, clr_type type)
 int unit_setdir(struct block_list *bl, unsigned char dir);
 uint8 unit_getdir(struct block_list *bl);
 int unit_blown(struct block_list* bl, int dx, int dy, int count, int flag);
-int unit_blown_immune(struct block_list* bl, int flag);
+uint8 unit_blown_immune(struct block_list* bl, uint8 flag);
 
 // Can-reach checks
 bool unit_can_reach_pos(struct block_list *bl,int x,int y,int easy);
@@ -139,6 +143,7 @@ void unit_free_pc(struct map_session_data *sd);
 int unit_remove_map_(struct block_list *bl, clr_type clrtype, const char* file, int line, const char* func);
 int unit_free(struct block_list *bl, clr_type clrtype);
 int unit_changeviewsize(struct block_list *bl,short size);
+int unit_changetarget(struct block_list *bl,va_list ap);
 
 void do_init_unit(void);
 void do_final_unit(void);

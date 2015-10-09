@@ -177,7 +177,7 @@ int impossible_trade_check(struct map_session_data *sd)
 	nullpo_retr(1, sd);
 
 	if(sd->deal.zeny > sd->status.zeny) {
-		pc_setglobalreg(sd,"ZENY_HACKER",1);
+		pc_setglobalreg(sd, add_str("ZENY_HACKER"), 1);
 		return -1;
 	}
 
@@ -391,6 +391,9 @@ void trade_tradeadditem(struct map_session_data *sd, short index, short amount)
 		return;
 	}
 
+	if (item->bound)
+		sd->state.isBoundTrading |= (1<<item->bound);
+
 	// Locate a trade position
 	ARR_FIND( 0, 10, trade_i, sd->deal.item[trade_i].index == index || sd->deal.item[trade_i].amount == 0 );
 	if( trade_i == 10 ) { // No space left
@@ -483,7 +486,10 @@ void trade_tradecancel(struct map_session_data *sd)
 	struct map_session_data *target_sd;
 	int trade_i;
 
+	nullpo_retv(sd);
+
 	target_sd = map_id2sd(sd->trade_partner);
+	sd->state.isBoundTrading = 0;
 
 	if(!sd->state.trading) { // Not trade accepted
 		if( target_sd ) {
@@ -545,6 +551,8 @@ void trade_tradecommit(struct map_session_data *sd)
 {
 	struct map_session_data *tsd;
 	int trade_i;
+
+	nullpo_retv(sd);
 
 	if (!sd->state.trading || !sd->state.deal_locked) //Locked should be 1 (pressed ok) before you can press trade.
 		return;
@@ -624,10 +632,12 @@ void trade_tradecommit(struct map_session_data *sd)
 	sd->state.deal_locked = 0;
 	sd->trade_partner = 0;
 	sd->state.trading = 0;
+	sd->state.isBoundTrading = 0;
 
 	tsd->state.deal_locked = 0;
 	tsd->trade_partner = 0;
 	tsd->state.trading = 0;
+	tsd->state.isBoundTrading = 0;
 
 	clif_tradecompleted(sd, 0);
 	clif_tradecompleted(tsd, 0);

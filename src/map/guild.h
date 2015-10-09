@@ -60,7 +60,7 @@ int guild_member_withdraw(int guild_id,uint32 account_id,uint32 char_id,int flag
 	const char *name,const char *mes);
 int guild_expulsion(struct map_session_data *sd,int guild_id,
 	uint32 account_id,uint32 char_id,const char *mes);
-int guild_skillup(struct map_session_data* sd, uint16 skill_id);
+void guild_skillup(struct map_session_data* sd, uint16 skill_id);
 void guild_block_skill(struct map_session_data *sd, int time);
 int guild_reqalliance(struct map_session_data *sd,struct map_session_data *tsd);
 int guild_reply_reqalliance(struct map_session_data *sd,uint32 account_id,int flag);
@@ -107,7 +107,7 @@ void guild_flags_clear(void);
 
 void guild_guildaura_refresh(struct map_session_data *sd, uint16 skill_id, uint16 skill_lv);
 #ifdef BOUND_ITEMS
-void guild_retrieveitembound(uint32 char_id,int aid,int guild_id);
+void guild_retrieveitembound(uint32 char_id,uint32 account_id,int guild_id);
 #endif
 
 void do_final_guild(void);

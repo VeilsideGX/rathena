@@ -12,6 +12,7 @@ Thumbs.db
 # /
 /*_fifo
 /*.exe
+/*.exe.*
 /*.ilk
 /*.log
 /*.ncb
@@ -133,3 +134,4 @@ Thumbs.db
 /.idea/rathena.iml
 /.idea/vcs.xml
 /.idea/workspace.xml
+/build/
